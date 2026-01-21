@@ -1,5 +1,3 @@
-
-```markdown
 # 🤖 AGLLMTest (Hardware Metrics LLM)
 
 **AGLLMTest**, yerel LLM'ler (Local Large Language Models) ile **Tool Calling (Function Calling)** yaklaşımını öğrenmek, denemek ve uçtan uca pratik etmek için geliştirilmiş bir **öğrenme projesidir**.
@@ -68,10 +66,6 @@ Sistem şu 4 temel adımda işler:
 ### 1. Ortam Değişkenleri (.env)
 
 Projeyi çalıştırmadan önce `.env` dosyası oluşturulmalıdır. Örnek dosyayı kopyalayın:
-
-```bash
-cp .env.example .env
-
 ```
 
 **Örnek `.env` içeriği:**
