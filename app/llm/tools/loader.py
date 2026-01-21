@@ -1,3 +1,4 @@
+# app/llm/tools/loader.py
 import json
 from pathlib import Path
 
@@ -10,6 +11,12 @@ def load_tools(spec_dir: Path, sql_dir: Path) -> dict[str, ToolSpec]:
     for p in spec_dir.glob("*.json"):
         data = json.loads(p.read_text(encoding="utf-8"))
         spec = ToolSpec.model_validate(data)
+
+        if spec.name in tools:
+            raise RuntimeError(
+                f"Duplicate tool name detected: {spec.name}. "
+                f"Conflict between {p.name} and {tools[spec.name].x_sql_file}"
+            )
 
         sql_path = sql_dir / spec.x_sql_file
         if not sql_path.exists():

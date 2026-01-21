@@ -1,4 +1,3 @@
-import re
 from typing import Any
 
 from jsonschema import validate
@@ -10,22 +9,8 @@ from app.llm.tools.registry import ToolRegistry
 
 log = get_logger()
 
-_UUID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-"
-    r"[0-9a-fA-F]{4}-"
-    r"[1-5][0-9a-fA-F]{3}-"
-    r"[89abAB][0-9a-fA-F]{3}-"
-    r"[0-9a-fA-F]{12}$"
-)
-
 
 def sanitize_args(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
-    """
-    LLM bazen:
-      - sayıları string gönderir (örn "60")
-      - host_id için <nil>/null/none gibi placeholder basar
-      - required parametreyi hiç göndermeyebilir (schema default'ı varsa doldururuz)
-    """
     props: dict[str, Any] = schema.get("properties", {}) or {}
     clean: dict[str, Any] = dict(args or {})
 
@@ -43,57 +28,59 @@ def sanitize_args(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any
             continue
 
         expected = prop.get("type")
-
-        # type list olabilir: ["integer","null"]
-        expected_list: list[str] | None = None
         if isinstance(expected, list):
-            expected_list = expected
             non_null = [t for t in expected if t != "null"]
             expected = non_null[0] if len(non_null) == 1 else None
 
         # 1) placeholder string -> None
         if isinstance(v, str):
             s = v.strip()
-            if s.lower() in {"<nil>", "nil", "<null>", "null", "none", "<none>", ""}:
+            if s.lower() in {
+                "<nil>", "nil", "<null>", "null", "none", "<none>", "",
+            }:
                 clean[key] = None
                 continue
 
-        # 2) host_id özel: uuid değilse None'a çek (CAST patlamasın)
-        if key == "host_id" and isinstance(clean.get(key), str):
-            hs = clean[key].strip()
-            if not _UUID_RE.match(hs):
-                clean[key] = None
-                continue
-
-        # 3) integer
+        # 2) integer parse + clamp
         if expected == "integer" and isinstance(v, str):
             s = v.strip()
             if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
                 clean[key] = int(s)
 
-        # 4) number
-        elif expected == "number" and isinstance(v, str):
+        if expected == "integer" and isinstance(clean.get(key), int):
+            if "minimum" in prop:
+                clean[key] = max(clean[key], int(prop["minimum"]))
+            if "maximum" in prop:
+                clean[key] = min(clean[key], int(prop["maximum"]))
+
+        # 3) number parse + clamp
+        if expected == "number" and isinstance(v, str):
             s = v.strip().replace(",", ".")
             try:
                 clean[key] = float(s)
             except ValueError:
                 pass
+        if expected == "number" and isinstance(clean.get(key), (int, float)):
+            if "minimum" in prop:
+                clean[key] = max(float(clean[key]), float(prop["minimum"]))
+            if "maximum" in prop:
+                clean[key] = min(float(clean[key]), float(prop["maximum"]))
 
-        # 5) boolean
-        elif expected == "boolean" and isinstance(v, str):
+        # 4) boolean
+        if expected == "boolean" and isinstance(v, str):
             s = v.strip().lower()
             if s in {"true", "1", "yes", "y"}:
                 clean[key] = True
             elif s in {"false", "0", "no", "n"}:
                 clean[key] = False
 
-        # 6) string bekleniyorsa primitive geldiyse string'e çevir
-        elif expected == "string" and isinstance(v, (int, float, bool)):
+        # 5) string bekleniyorsa primitive -> string
+        if expected == "string" and isinstance(v, (int, float, bool)):
             clean[key] = str(v)
 
-        # null izinli değilse validate yakalar
-        if clean.get(key) is None and expected_list and "null" not in expected_list:
-            pass
+    # ✅ şemada olmayan anahtarları DROP et
+    allowed = set(props.keys())
+    clean = {k: v for k, v in clean.items() if k in allowed}
 
     return clean
 

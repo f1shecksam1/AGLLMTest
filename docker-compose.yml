@@ -1,3 +1,4 @@
+# docker-compose.yml
 services:
   db:
     image: postgres:16
@@ -14,7 +15,23 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
-  
+
+  migrator:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    env_file: .env
+    environment:
+      PYTHONPATH: /app
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      bash -lc "alembic upgrade head"
+    restart: "no"
+
   api:
     build:
       context: .
@@ -28,11 +45,11 @@ services:
       - .:/app
       - ./var/log:/var/log/app
     depends_on:
-      db:
-        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     command: >
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-  
+
   collector:
     build:
       context: .
@@ -44,10 +61,10 @@ services:
       - .:/app
       - ./var/log:/var/log/app
     depends_on:
-      db:
-        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     command: >
-      python -m app.services.collector    
+      python -m app.services.collector
 
 volumes:
   pg_data:

@@ -1,11 +1,9 @@
 {
   "name": "get_latest_snapshot",
-  "description": "Seçili host için en güncel CPU/RAM/GPU metrik özetini döndürür. host_id verilmezse en son host seçilir.",
+  "description": "En güncel CPU/RAM/GPU metrik özetini döndürür.",
   "parameters": {
     "type": "object",
-    "properties": {
-      "host_id": { "type": ["string", "null"] }
-    },
+    "properties": {},
     "required": [],
     "additionalProperties": false
   },

@@ -5,19 +5,13 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# /app kökünü path'e ekle (import app.* için)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]  # /app
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Alembic Config
 config = context.config
-
-# NOT: fileConfig(...) çağırmıyoruz çünkü alembic.ini minimal ve logging section yok.
-# (İstersen ileride alembic.ini'ye full logging config ekleyebiliriz.)
 
 # --- Autogenerate için modelleri import et ---
 from app.models.base import Base  # noqa: E402
-from app.models.host import Host  # noqa: F401,E402
 from app.models.metrics_cpu import MetricsCPU  # noqa: F401,E402
 from app.models.metrics_ram import MetricsRAM  # noqa: F401,E402
 from app.models.metrics_gpu import MetricsGPU  # noqa: F401,E402

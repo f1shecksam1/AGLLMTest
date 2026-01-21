@@ -1,11 +1,10 @@
 {
   "name": "get_max_ram_usage_percent",
-  "description": "Son X dakika içinde en yüksek RAM kullanım yüzdesini döndürür. host_id verilmezse en son host seçilir.",
+  "description": "Son X dakika içinde en yüksek RAM kullanım yüzdesini döndürür.",
   "parameters": {
     "type": "object",
     "properties": {
-      "minutes": { "type": "integer", "minimum": 1, "maximum": 1440, "default": 60 },
-      "host_id": { "type": ["string", "null"] }
+      "minutes": { "type": "integer", "minimum": 1, "maximum": 1440, "default": 60 }
     },
     "required": ["minutes"],
     "additionalProperties": false

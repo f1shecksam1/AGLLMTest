@@ -3,6 +3,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import ORJSONResponse
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from app.core.logging import configure_logging, get_logger
@@ -10,6 +11,10 @@ from app.api.v1.routers.health import router as health_router
 from app.api.v1.routers.llm import router as llm_router
 
 log = get_logger()
+
+
+class UTF8ORJSONResponse(ORJSONResponse):
+    media_type = "application/json; charset=utf-8"
 
 
 @asynccontextmanager
@@ -20,7 +25,14 @@ async def lifespan(app: FastAPI):
     log.info("app.stop")
 
 
-app = FastAPI(title="hardware-metrics-llm", lifespan=lifespan)
+# ✅ TEK app instance
+app = FastAPI(
+    title="hardware-metrics-llm",
+    lifespan=lifespan,
+    default_response_class=UTF8ORJSONResponse,
+)
+
+# ✅ Router’lar bu app’e eklenir
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(llm_router, prefix="/api/v1")
 
@@ -41,14 +53,15 @@ async def request_logging_middleware(request: Request, call_next):
 
     log.info("http.request.received")
 
+    response: Response | None = None
     try:
-        response: Response = await call_next(request)
+        response = await call_next(request)
         return response
     finally:
         duration_ms = int((time.perf_counter() - start) * 1000)
         log.info(
             "http.response.sent",
-            status_code=getattr(locals().get("response", None), "status_code", None),
+            status_code=response.status_code if response else None,
             duration_ms=duration_ms,
         )
         clear_contextvars()
