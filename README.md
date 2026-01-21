@@ -1,75 +1,96 @@
-# AGLLMTest
+Harika bir proje dokümantasyonu hazırlamışsın. Bunu GitHub veya GitLab gibi platformlarda **README.md** olarak kullanıldığında çok şık ve okunabilir duracak şekilde Markdown formatında düzenledim.
 
-# AGLLMTest (hardware-metrics-llm)
+Başlıkları hiyerarşik hale getirdim, kod bloklarını renklendirdim ve önemli uyarıları vurguladım.
 
-Bu proje, **local LLM’ler ile tool calling (function calling)** yaklaşımını öğrenmek ve uçtan uca pratik etmek için yapılmış bir **öğrenme/deneme projesidir**.
-
-Sistem şu şekilde çalışır:
-1) Collector belirli aralıklarla **CPU / RAM / GPU** metriklerini toplar.  
-2) Metrikler **PostgreSQL**’e yazılır.  
-3) FastAPI üzerinden gelen doğal dil soruları, LLM tarafından yorumlanır.  
-4) LLM, uygun **SQL tool**’unu çağırır ve sonuçlara dayanarak kullanıcıya cevap üretir.
-
-> Bu sürümde **hosts/host_id/hostname tamamen yoktur**. Veriler tek bir metrik akışı gibi tutulur. Aynı DB’ye birden fazla collector yazarsa veriler karışır.
+Aşağıdaki kodu kopyalayıp projenin kök dizinine `README.md` olarak kaydedebilirsin.
 
 ---
 
-## Özellikler
+```markdown
+# 🤖 AGLLMTest (Hardware Metrics LLM)
 
-- **Collector service**: psutil + (varsa) `nvidia-smi`
-- **DB**: PostgreSQL 16
-- **API**: FastAPI
-- **LLM Orchestrator**:
-  - “son 10 dk / son 1 saat / geçen 30 dakika” gibi ifadelerden süre çıkarır
-  - Uygun SQL tool’unu çağırır
-  - Tool sonucunu LLM’e “bilgilendirici metin” olarak verip final cevabı üretir
-- **Migration otomasyonu**: docker-compose içindeki `migrator` servisi, DB hazır olunca `alembic upgrade head` çalıştırır
+**AGLLMTest**, yerel LLM'ler (Local Large Language Models) ile **Tool Calling (Function Calling)** yaklaşımını öğrenmek, denemek ve uçtan uca pratik etmek için geliştirilmiş bir **öğrenme projesidir**.
+
+Bu proje, sistem metriklerini (CPU, RAM, GPU) toplar, bir veritabanına yazar ve kullanıcının doğal dil ile sorduğu soruları (örneğin: *"Son 10 dakika CPU max nedir?"*) SQL sorgularına dönüştürerek yanıtlar.
 
 ---
 
-## Gereksinimler
+## ⚙️ Nasıl Çalışır?
 
-### Çalıştırmak için (önerilen)
-- Docker Desktop (Windows/macOS) veya Docker Engine (Linux)
-- Docker Compose v2
+Sistem şu 4 temel adımda işler:
 
-### Local LLM için
-- OpenAI-compatible endpoint sunan bir local LLM çözümü (öneri: **Ollama**)
-- Proje `POST {LLM_BASE_URL}/chat/completions` çağırır (OpenAI uyumlu)
+1.  **Collector:** Belirli aralıklarla CPU, RAM ve GPU metriklerini toplar.
+2.  **Storage:** Toplanan metrikler **PostgreSQL** veritabanına yazılır.
+3.  **LLM Orchestrator:** FastAPI üzerinden gelen doğal dil soruları LLM tarafından yorumlanır.
+4.  **Tool Execution:** LLM, soruyu cevaplamak için uygun **SQL tool**'unu çağırır ve elde ettiği veriyi yorumlayarak son kullanıcıya cevap üretir.
 
-### GPU metrikleri
-- Container içinde `nvidia-smi` yoksa GPU değerleri **random** yazılır.
-- Gerçek GPU metrikleri için NVIDIA driver + container runtime yapılandırması gerekir.
+> ⚠️ **Önemli Not:** Bu sürümde `hosts`, `host_id` veya `hostname` ayrımı **yoktur**. Veriler tek bir metrik akışı olarak kabul edilir. Aynı veritabanına birden fazla collector yazarsa veriler karışabilir.
 
 ---
 
-## Proje Yapısı (kısa)
+## 🚀 Özellikler
 
-- `app/services/collector.py` → metrik toplayıcı
-- `app/api/v1/routers/llm.py` → `/api/v1/llm/ask`
-- `app/llm/orchestrator.py` → tool çağrıları + final cevap üretimi
-- `app/llm/tools/specs/*.json` → tool şemaları
-- `app/llm/tools/sql/*.sql` → tool’ların SQL sorguları
-- `alembic/` → migration yönetimi
-- `docker-compose.yml` → db + migrator + api + collector
+* **Collector Service:** `psutil` ve (varsa) `nvidia-smi` kullanarak veri toplar.
+* **Database:** PostgreSQL 16.
+* **API:** FastAPI tabanlı REST API.
+* **LLM Orchestrator:**
+    * "Son 10 dk", "Geçen 1 saat" gibi zaman ifadelerini ayrıştırır.
+    * Uygun SQL fonksiyonunu seçer.
+    * Sorgu sonucunu LLM'e bağlam olarak verip doğal dil cevabı üretir.
+* **Otomatik Migration:** `docker-compose` içindeki `migrator` servisi, DB hazır olduğunda otomatik olarak `alembic upgrade head` çalıştırır.
 
 ---
 
-## Ortam Değişkenleri (.env)
+## 📋 Gereksinimler
 
-Projede `.env` dosyası gerekir. `.env.example`’ı kopyalayıp düzenle:
+### Çalıştırmak İçin (Önerilen)
+* **Docker Desktop** (Windows/macOS) veya **Docker Engine** (Linux)
+* **Docker Compose v2**
+
+### Local LLM İçin
+* OpenAI uyumlu endpoint sunan bir yerel LLM çözümü.
+* **Öneri:** [Ollama](https://ollama.com/)
+* Proje `POST {LLM_BASE_URL}/chat/completions` adresine istek atar.
+
+### GPU Metrikleri Hakkında
+* Container içinde `nvidia-smi` erişimi yoksa GPU değerleri **random (rastgele)** üretilir.
+* Gerçek GPU metrikleri için NVIDIA Driver + Container Runtime yapılandırması gereklidir.
+
+---
+
+## 📂 Proje Yapısı
+
+* `app/services/collector.py` ➤ Metrik toplayıcı servis.
+* `app/api/v1/routers/llm.py` ➤ `/api/v1/llm/ask` endpoint'i.
+* `app/llm/orchestrator.py` ➤ Tool çağrıları ve cevap üretim mantığı.
+* `app/llm/tools/specs/*.json` ➤ Tool şemaları (OpenAI formatı).
+* `app/llm/tools/sql/*.sql` ➤ Tool'ların çalıştırdığı SQL sorguları.
+* `alembic/` ➤ Veritabanı migration yönetimi.
+* `docker-compose.yml` ➤ Tüm servislerin (db, api, collector, migrator) orkestrasyonu.
+
+---
+
+## 🔧 Kurulum ve Yapılandırma
+
+### 1. Ortam Değişkenleri (.env)
+
+Projeyi çalıştırmadan önce `.env` dosyası oluşturulmalıdır. Örnek dosyayı kopyalayın:
 
 ```bash
 cp .env.example .env
 
-Örnek içerik:
+```
 
-# DB
+**Örnek `.env` içeriği:**
+
+```dotenv
+# DB Bağlantıları
 DATABASE_URL_ASYNC=postgresql+asyncpg://app:app@db:5432/hwdb
 DATABASE_URL_SYNC=postgresql+psycopg://app:app@db:5432/hwdb
 
-# LLM (Ollama örneği)
-LLM_BASE_URL=http://host.docker.internal:11434/v1
+# LLM Ayarları (Ollama Örneği)
+# Docker içinden host makinedeki Ollama'ya erişim için host.docker.internal kullanılır
+LLM_BASE_URL=[http://host.docker.internal:11434/v1](http://host.docker.internal:11434/v1)
 LLM_MODEL=llama3.1
 LLM_TIMEOUT_SECONDS=60
 LLM_MAX_TOOL_ITERATIONS=5
@@ -81,232 +102,176 @@ LOG_DIR=/var/log/app
 # Collector
 METRICS_INTERVAL_SECONDS=10
 
-    Not: Yanlış env isimleri sessizce yok sayılabilir; bu yüzden isimleri doğru yaz.
+```
 
-Kurulum ve Çalıştırma
-1) Temiz başlangıç (DB dahil her şey sıfırlanır)
+### 2. Başlatma (Docker Compose)
 
+Temiz bir başlangıç yapmak (DB dahil her şeyi sıfırdan kurmak) için:
+
+```bash
+# Eski volume'leri temizle ve yeniden build et
 docker compose down -v
 docker compose up --build
 
-Bu akışta:
+```
 
-    Postgres volume silinir (tüm veriler gider)
+Bu işlem sırasıyla şunları yapar:
 
-    İmajlar build edilir
+1. Postgres volume silinir (veri sıfırlanır).
+2. İmajlar build edilir.
+3. `migrator` servisi çalışır ve tabloları oluşturur.
+4. Migration bitince `api` ve `collector` servisleri başlar.
 
-    migrator çalışır → alembic upgrade head
+### 3. Kontrol ve Loglar
 
-    Migration başarılı olunca api ve collector başlar
+Servislerin durumunu görmek için:
 
-2) Servisleri kontrol et
-
+```bash
 docker compose ps
 
-3) Logları izle
+```
 
-docker compose logs -f migrator
-docker compose logs -f api
-docker compose logs -f collector
-docker compose logs -f db
+Logları canlı izlemek için:
 
-    Uygulama logları ayrıca host makinede ./var/log/ altında birikir.
+```bash
+docker compose logs -f api      # API logları
+docker compose logs -f collector # Collector logları
+docker compose logs -f db       # Veritabanı logları
 
-API Kullanımı
-Health check
+```
 
+---
+
+## 🔌 API Kullanımı
+
+### Health Check
+
+Sistemin ayakta olduğunu doğrulamak için:
+
+```bash
 curl http://localhost:8000/api/v1/health
+# Beklenen Cevap: {"status":"ok"}
 
-Beklenen:
+```
 
-{"status":"ok"}
+### LLM ile Soru Sorma
 
-LLM ile soru sorma
+Metriklerle ilgili soru sormak için:
 
-Endpoint:
+**Endpoint:** `POST http://localhost:8000/api/v1/llm/ask`
 
-    POST http://localhost:8000/api/v1/llm/ask
+**Örnek İstek (Curl - Linux/Mac):**
 
-Body:
+```bash
+curl -X POST http://localhost:8000/api/v1/llm/ask \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Son 10 dk CPU max nedir?"}'
 
-{"text":"Son 10 dk CPU max nedir?"}
+```
 
-Windows PowerShell örneği:
+**Örnek İstek (PowerShell - Windows):**
 
+```powershell
 curl -X POST http://localhost:8000/api/v1/llm/ask `
   -H "Content-Type: application/json" `
   -d "{\"text\":\"Son 10 dk CPU max nedir?\"}"
 
-Cevap formatı:
+```
 
-{"answer":"..."}
+**Beklenen Cevap:**
 
-Hangi Sorular Sorulmalı?
+```json
+{
+  "answer": "Son 10 dakika içindeki maksimum CPU kullanımı %45 olarak ölçülmüştür."
+}
 
-Sistem özellikle şu tip sorulara göre tasarlandı:
-Zaman aralığı içeren sorular
+```
 
-    “Son 10 dk CPU max nedir?”
+---
 
-    “Son 1 saat GPU max kaç?”
+## 🧠 LLM ve Prompt Kılavuzu
 
-    “Geçen 30 dakika RAM max kullanım yüzdesi nedir?”
+Sistem aşağıdaki soru tiplerine ve zaman ifadelerine duyarlıdır:
 
-    “Son 2 gün CPU sıcaklık max nedir?”
+### Desteklenen Soru Tipleri
 
-Desteklenen birimler:
+* **Zaman Aralığı:** "Son 10 dk CPU max nedir?", "Geçen 1 saat GPU max kaç?"
+* **Anlık Durum:** "Şu an CPU kullanımı kaç?", "En güncel metrikleri göster." (Sistem "şu an" ifadesini pratikte son 5 dakika veya son snapshot olarak yorumlar).
+* **Birimler:**
+* Dakika: `dk`, `dakika`
+* Saat: `saat`
+* Gün: `gün`
 
-    dk, dakika
 
-    saat
+* **Sayı İfadeleri:** "Son bir saat", "son on dakika" gibi Türkçe ifadeler desteklenir.
 
-    gün
+### Mevcut Tool'lar
 
-Türkçe temel sayı kelimeleri desteklenir:
+LLM arka planda şu fonksiyonları çağırabilir:
 
-    “son bir saat”, “son on dakika”, “son otuz dk” vb.
+* `get_latest_snapshot`
+* `get_max_cpu_usage(minutes)`
+* `get_max_cpu_temp(minutes)`
+* `get_max_ram_usage_percent(minutes)`
+* `get_max_gpu_utilization(minutes)`
 
-“Şu an / şimdi” gibi ifadeler
+---
 
-    “Şu an CPU max nedir?”
+## 🦙 Ollama Kurulumu (Local LLM)
 
-        Sistem bunu pratikte son 5 dakika olarak yorumlar.
+Bu proje OpenAI uyumlu bir endpoint bekler. Ollama'yı yerel LLM sunucusu olarak kullanmak için adımlar:
 
-Snapshot (en güncel değerler)
-
-    “En güncel metrikleri göster”
-
-    “Son snapshot”
-
-    “Şu an sistem durumu nedir?”
-
-Mevcut Tool’lar
-
-    get_latest_snapshot
-
-    get_max_cpu_usage(minutes)
-
-    get_max_cpu_temp(minutes)
-
-    get_max_ram_usage_percent(minutes)
-
-    get_max_gpu_utilization(minutes)
-
-    Host filtresi yoktur. Tüm sorgular tek akış üzerinden çalışır.
-
-Terminalde Sık Kullanılan Komutlar
-Sistemi başlat
-
-docker compose up --build
-
-Arka planda çalıştır
-
-docker compose up -d --build
-
-Durdur
-
-docker compose down
-
-DB dahil her şeyi sil
-
-docker compose down -v
-
-DB’ye girip kontrol (psql)
-
-docker compose exec db psql -U app -d hwdb
-
-Örnek sorgular:
-
-\dt
-select * from metrics_cpu order by ts desc limit 5;
-select max(usage_percent) from metrics_cpu where ts >= now() - interval '10 minutes';
-
-Migration durumunu kontrol (container içinde)
-
-docker compose exec api alembic current
-docker compose exec api alembic heads
-
-LLM’i Ollama ile Kurma (model pull / serve / test)
-
-Bu proje OpenAI-compatible bir endpoint bekler. Ollama’yı local LLM olarak kullanmak için:
-1) Ollama kurulumu
-
-Ollama’yı resmi dağıtımından kur ve doğrula:
-
+1. **Kurulum:** [Ollama.com](https://ollama.com) üzerinden indirip kurun.
+```bash
 ollama --version
 
-2) Model indirme (pull)
+```
 
-Örnek:
 
+2. **Model İndirme:** Projede kullanacağınız modeli çekin (`.env` dosyasındaki `LLM_MODEL` ile aynı olmalıdır).
+```bash
 ollama pull llama3.1
-
-Alternatifler:
-
+# veya
 ollama pull mistral
-ollama pull qwen2.5
 
-Mevcut modelleri listeleme:
+```
 
-ollama list
 
-3) Ollama’yı çalıştırma (serve)
-
-Çoğu kurulumda servis olarak arka planda çalışır. Gerekirse:
-
+3. **Çalıştırma:**
+```bash
 ollama serve
+# Default port: 11434
 
-Ollama default:
+```
 
-    http://localhost:11434
 
-4) Projeyi Ollama’ya bağlama (.env)
-
-Docker container içinden host’taki Ollama’ya erişmek için .env:
-
-LLM_BASE_URL=http://host.docker.internal:11434/v1
-LLM_MODEL=llama3.1
-
-5) Hızlı test
-
-Ollama’nın çalıştığını test et:
-
+4. **Test:**
+```bash
 ollama run llama3.1 "Merhaba!"
 
-Proje üzerinden tool calling test:
+```
 
-curl -X POST http://localhost:8000/api/v1/llm/ask `
-  -H "Content-Type: application/json" `
-  -d "{\"text\":\"Son 10 dk CPU max nedir?\"}"
 
-Troubleshooting
-“alembic is not recognized” (Windows PowerShell)
 
-Bu normaldir; alembic host makinede kurulu olmayabilir. Migration otomatik migrator servisiyle çalışır. Elle çalıştırmak istersen:
+---
 
-docker compose exec api alembic upgrade head
+## 🛠 Troubleshooting (Sorun Giderme)
 
-“relation metrics_cpu does not exist”
+| Hata / Durum | Çözüm |
+| --- | --- |
+| **`alembic is not recognized`** | Bu normaldir. Migration container içinde otomatik çalışır. Elle çalıştırmak için: `docker compose exec api alembic upgrade head` |
+| **`relation metrics_cpu does not exist`** | Migration çalışmamış. DB'yi sıfırlayın: `docker compose down -v` ardından `docker compose up --build` |
+| **LLM Bağlantı Hatası** | 1. `.env` içindeki `LLM_BASE_URL` doğru mu?<br>
 
-Migration çalışmamış demektir:
+<br>2. Ollama çalışıyor mu?<br>
 
-docker compose logs migrator
-docker compose down -v
-docker compose up --build
+<br>3. Model adı doğru mu? |
+| **GPU Metrikleri Random Geliyor** | Container içinde NVIDIA sürücüleri yoktur. Bu proje, GPU erişimi yoksa test amaçlı rastgele veri üretir. |
 
-LLM endpoint’e bağlanamıyor
+---
 
-    .env içindeki LLM_BASE_URL doğru mu?
+> 📝 **Not:** Bazı metrikler sistemden okunamadığında bu proje **random** değerler yazar. Bu davranış sadece öğrenme/deneme amaçlıdır. Gerçek sistemlerde "unavailable" olarak işaretlenmesi önerilir.
 
-    Ollama çalışıyor mu?
+```
 
-    Model adı .env ile aynı mı?
-
-GPU metrikleri hep random
-
-Container içinde nvidia-smi yoktur veya erişim yoktur. Gerçek GPU metrikleri için NVIDIA container runtime yapılandırması gerekir.
-Notlar
-
-    Bazı metrikler okunamazsa bu proje random değer yazar (öğrenme/deneme amaçlı).
-
-    Gerçek sistemlerde bunun yerine “unavailable” işaretleme veya ayrı alanlarla işaretlemek daha doğrudur.
+```
