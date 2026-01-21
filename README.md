@@ -266,5 +266,3 @@ ollama run llama3.1 "Merhaba!"
 > 📝 **Not:** Bazı metrikler sistemden okunamadığında bu proje **random** değerler yazar. Bu davranış sadece öğrenme/deneme amaçlıdır. Gerçek sistemlerde "unavailable" olarak işaretlenmesi önerilir.
 
 ```
-
-```
