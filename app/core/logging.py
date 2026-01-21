@@ -70,5 +70,8 @@ def configure_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
+    def get_logger():
+        return structlog.get_logger()
+
     # (Opsiyonel) Uvicorn access loglarını kapatmak istersen:
     # logging.getLogger("uvicorn.access").disabled = True
