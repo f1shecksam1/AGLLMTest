@@ -1,10 +1,3 @@
-Harika bir proje dokümantasyonu hazırlamışsın. Bunu GitHub veya GitLab gibi platformlarda **README.md** olarak kullanıldığında çok şık ve okunabilir duracak şekilde Markdown formatında düzenledim.
-
-Başlıkları hiyerarşik hale getirdim, kod bloklarını renklendirdim ve önemli uyarıları vurguladım.
-
-Aşağıdaki kodu kopyalayıp projenin kök dizinine `README.md` olarak kaydedebilirsin.
-
----
 
 ```markdown
 # 🤖 AGLLMTest (Hardware Metrics LLM)
