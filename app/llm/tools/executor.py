@@ -21,14 +21,13 @@ _UUID_RE = re.compile(
 
 def sanitize_args(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
     """
-    LLM bazen sayıları string olarak gönderir (örn. "60") veya host_id için <nil> gibi placeholder basar.
-    Bu fonksiyon schema'ya bakarak:
-      - default değerleri doldurur
-      - integer/number/boolean dönüşümü yapar
-      - host_id placeholder/uuid olmayan string ise None'a çeker
+    LLM bazen:
+      - sayıları string gönderir (örn "60")
+      - host_id için <nil>/null/none gibi placeholder basar
+      - required parametreyi hiç göndermeyebilir (schema default'ı varsa doldururuz)
     """
     props: dict[str, Any] = schema.get("properties", {}) or {}
-    clean: dict[str, Any] = dict(args)
+    clean: dict[str, Any] = dict(args or {})
 
     # 0) schema default doldurma
     for key, prop in props.items():
@@ -45,34 +44,34 @@ def sanitize_args(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any
 
         expected = prop.get("type")
 
-        # JSON Schema'da type bazen liste olabilir: ["integer","null"]
+        # type list olabilir: ["integer","null"]
         expected_list: list[str] | None = None
         if isinstance(expected, list):
             expected_list = expected
             non_null = [t for t in expected if t != "null"]
             expected = non_null[0] if len(non_null) == 1 else None
 
-        # 0.5) placeholder string -> None (özellikle host_id için)
+        # 1) placeholder string -> None
         if isinstance(v, str):
             s = v.strip()
             if s.lower() in {"<nil>", "nil", "<null>", "null", "none", "<none>", ""}:
                 clean[key] = None
                 continue
 
-        # host_id özel: uuid değilse None'a çek (CAST patlamasın)
+        # 2) host_id özel: uuid değilse None'a çek (CAST patlamasın)
         if key == "host_id" and isinstance(clean.get(key), str):
             hs = clean[key].strip()
             if not _UUID_RE.match(hs):
                 clean[key] = None
                 continue
 
-        # integer
+        # 3) integer
         if expected == "integer" and isinstance(v, str):
             s = v.strip()
             if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
                 clean[key] = int(s)
 
-        # number (float)
+        # 4) number
         elif expected == "number" and isinstance(v, str):
             s = v.strip().replace(",", ".")
             try:
@@ -80,7 +79,7 @@ def sanitize_args(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any
             except ValueError:
                 pass
 
-        # boolean
+        # 5) boolean
         elif expected == "boolean" and isinstance(v, str):
             s = v.strip().lower()
             if s in {"true", "1", "yes", "y"}:
@@ -88,13 +87,12 @@ def sanitize_args(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any
             elif s in {"false", "0", "no", "n"}:
                 clean[key] = False
 
-        # string bekleniyorsa ama sayı geldiyse -> stringe çevir (opsiyonel)
+        # 6) string bekleniyorsa primitive geldiyse string'e çevir
         elif expected == "string" and isinstance(v, (int, float, bool)):
             clean[key] = str(v)
 
-        # Eğer schema type list ise ve clean None olduysa ama null izinli değilse geri alma (validate yakalar)
+        # null izinli değilse validate yakalar
         if clean.get(key) is None and expected_list and "null" not in expected_list:
-            # null izinli değilse validate patlasın (bilinçli)
             pass
 
     return clean

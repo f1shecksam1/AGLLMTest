@@ -1,6 +1,6 @@
 {
-  "name": "get_max_cpu_usage",
-  "description": "Son X dakika içinde en yüksek CPU kullanım yüzdesini döndürür. host_id verilmezse en son host seçilir.",
+  "name": "get_max_gpu_utilization",
+  "description": "Son X dakika içinde en yüksek GPU kullanım yüzdesini döndürür. host_id verilmezse en son host seçilir.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -10,5 +10,5 @@
     "required": ["minutes"],
     "additionalProperties": false
   },
-  "x_sql_file": "get_max_cpu_usage.sql"
+  "x_sql_file": "get_max_gpu_utilization.sql"
 }

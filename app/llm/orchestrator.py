@@ -1,88 +1,139 @@
+# app/llm/orchestrator.py
+from __future__ import annotations
+
 import json
 from typing import Any
 
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.logging import get_logger
-from app.llm.client import OpenAICompatClient
+from app.llm.client import LLMClient
 from app.llm.tools.executor import execute_tool
 from app.llm.tools.registry import ToolRegistry
 
 log = get_logger()
 
-_registry = ToolRegistry()
-_client = OpenAICompatClient()
+SYSTEM_PROMPT = """
+Sen bir tool-orchestrator'sun.
+- SQL üretme.
+- Sadece verilen tool'ları seç ve çağır.
+- host_id kullanıcı tarafından verilmemişse ASLA kullanıcıdan host_id isteme.
+  Bunun yerine host_id parametresini OMIT et veya null gönder.
+  (Sistem host_id null/olmaması durumunda otomatik en son host'u seçer.)
+- minutes parametresi her zaman INTEGER olmalı (örn 60).
+- Cevabı tool sonucu üzerinden ver; "imkansız" / "host_id yok" gibi kaçış cevapları verme.
+""".strip()
 
 
-def _maybe_truncate(s: str, limit: int = 2000) -> str:
-    return s if len(s) <= limit else s[:limit] + "...(truncated)"
+def _looks_like_hostid_refusal(text: str) -> bool:
+    t = (text or "").lower()
+    if "host_id" not in t and "host id" not in t:
+        return False
+    return any(
+        k in t
+        for k in [
+            "imkans",
+            "imkansız",
+            "cevap",
+            "verilmiyor",
+            "cannot",
+            "can't",
+            "impossible",
+        ]
+    )
 
 
 async def ask_with_tools(session: AsyncSession, user_text: str) -> dict[str, Any]:
-    log.info("llm.user_input", user_text=_maybe_truncate(user_text) if not settings.log_full_payload else user_text)
+    registry = ToolRegistry()
+    client = LLMClient()
+
+    tools = registry.openai_tools()
 
     messages: list[dict[str, Any]] = [
-        {
-            "role": "system",
-            "content": (
-                "Sen bir araç seçme asistanısın. SQL üretme veya önermeye çalışma. "
-                "Sadece uygun tool'u seç ve tool parametrelerini şemaya uygun ver. "
-                "Tool yoksa bunu belirt."
-            ),
-        },
+        {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_text},
     ]
 
-    tools = _registry.openai_tools()
+    did_auto_select_host = False
 
-    for i in range(settings.llm_max_tool_iterations):
+    for i in range(5):
+        log.info("llm.request", iter=i, model=client.model, tools_count=len(tools))
+
         payload = {
-            "model": settings.llm_model,
+            "model": client.model,
             "messages": messages,
             "tools": tools,
             "tool_choice": "auto",
         }
 
-        log.info("llm.request", iter=i, model=settings.llm_model, tools_count=len(tools))
+        data = await client.chat(payload)
 
-        data = await _client.chat(payload)
-        msg = data["choices"][0]["message"]
+        choice = (data.get("choices") or [{}])[0]
+        msg = choice.get("message") or {}
+
         tool_calls = msg.get("tool_calls") or []
+        content = msg.get("content") or ""
 
-        # Final cevap
+        # 1) Tool çağrısı yok + "host_id lazım" kaçışı var -> fallback ile en son host'u resolve et
+        if not tool_calls and not did_auto_select_host and _looks_like_hostid_refusal(content):
+            try:
+                snap = await execute_tool(registry, session, "get_latest_snapshot", {"host_id": None})
+                snapshot_obj = snap.get("snapshot") or {}
+                host_obj = snapshot_obj.get("host") or {}
+                latest_host_id = host_obj.get("id")
+
+                if latest_host_id:
+                    did_auto_select_host = True
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": (
+                                f"Host otomatik seçildi. Varsayılan host_id={latest_host_id}. "
+                                "Kullanıcıdan host_id isteme; gerekiyorsa bunu kullan ya da host_id'yi null/omitted bırak."
+                            ),
+                        }
+                    )
+                    continue
+            except Exception:
+                log.exception("llm.fallback.latest_host_failed")
+
+        # 2) Tool çağrısı yoksa: final answer
         if not tool_calls:
-            final_text = msg.get("content") or ""
-            log.info("llm.final_answer", answer=_maybe_truncate(final_text) if not settings.log_full_payload else final_text)
-            return {"answer": final_text, "used_tools": []}
+            log.info("llm.final_answer", answer=content)
+            return {"answer": content}
 
-        # Tool çağrısı varsa: önce assistant mesajını ekle
-        messages.append({"role": "assistant", "tool_calls": tool_calls})
+        # 3) Tool çağrıları varsa: sırayla execute et
+        messages.append(
+            {
+                "role": "assistant",
+                "content": content,
+                "tool_calls": tool_calls,
+            }
+        )
 
-        used = []
         for tc in tool_calls:
-            fn = tc.get("function", {})
+            fn = (tc.get("function") or {})
             tool_name = fn.get("name")
             raw_args = fn.get("arguments") or "{}"
-            tool_args = json.loads(raw_args)
+
+            try:
+                tool_args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+            except Exception:
+                tool_args = {}
 
             log.info("llm.tool_decision", tool_name=tool_name, tool_args=tool_args)
 
-            result = await execute_tool(_registry, session, tool_name, tool_args)
+            result = await execute_tool(registry, session, tool_name, tool_args)
 
-            used.append({"tool": tool_name, "args": tool_args, "result": result})
-
-            # Tool response mesajı
+            # IMPORTANT: datetime gibi tipleri güvenle JSON'a çevirmek için jsonable_encoder kullanıyoruz
             messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": tc.get("id"),
                     "name": tool_name,
-                    "content": json.dumps(result, ensure_ascii=False),
+                    "content": json.dumps(jsonable_encoder(result), ensure_ascii=False),
                 }
             )
 
-        # Bir sonraki iterasyonda LLM tool sonuçlarıyla nihai cevap üretecek
-        log.info("llm.tool_results.sent", tools_used=len(used))
-
-    return {"answer": "Tool çağrıları çok uzadı; lütfen daha spesifik sor.", "used_tools": []}
+    return {"answer": "Tool çağrıları çok kez tekrarlandı; lütfen soruyu daha net sor."}
