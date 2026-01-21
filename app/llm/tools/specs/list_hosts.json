@@ -1,0 +1,11 @@
+{
+  "name": "list_hosts",
+  "description": "Kayıtlı host listesini döndürür.",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "x_sql_file": "list_hosts.sql"
+}

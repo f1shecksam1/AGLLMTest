@@ -12,11 +12,9 @@ def configure_logging() -> None:
     os.makedirs(settings.log_dir, exist_ok=True)
     log_path = os.path.join(settings.log_dir, "app.log")
 
-    # 1) stdlib root logger
     root = logging.getLogger()
     root.setLevel(settings.log_level)
 
-    # 2) handlers
     sh = logging.StreamHandler()
     sh.setLevel(settings.log_level)
 
@@ -30,9 +28,8 @@ def configure_logging() -> None:
     )
     fh.setLevel(settings.log_level)
 
-    # 3) structlog processors (ortak)
     pre_chain = [
-        merge_contextvars,  # request_id vb.
+        merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
@@ -45,7 +42,6 @@ def configure_logging() -> None:
         pad_level=False,
     )
 
-    # 4) stdlib -> structlog formatter bridge
     formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=pre_chain,
         processors=[
@@ -61,7 +57,6 @@ def configure_logging() -> None:
     root.addHandler(sh)
     root.addHandler(fh)
 
-    # 5) structlog config
     structlog.configure(
         processors=pre_chain + [
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
@@ -70,8 +65,6 @@ def configure_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
-    def get_logger():
-        return structlog.get_logger()
 
-    # (Opsiyonel) Uvicorn access loglarını kapatmak istersen:
-    # logging.getLogger("uvicorn.access").disabled = True
+def get_logger():
+    return structlog.get_logger()

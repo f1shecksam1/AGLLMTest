@@ -7,6 +7,7 @@ from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from app.core.logging import configure_logging, get_logger
 from app.api.v1.routers.health import router as health_router
+from app.api.v1.routers.llm import router as llm_router
 
 log = get_logger()
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="hardware-metrics-llm", lifespan=lifespan)
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(llm_router, prefix="/api/v1")
 
 
 @app.middleware("http")
